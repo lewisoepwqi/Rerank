@@ -1,0 +1,59 @@
+# 合同雷达 — bge-reranker-v2-m3 重排服务（Linux + NVIDIA CUDA, Docker）
+#
+# 目标机器：Ubuntu / 2x RTX A4000 16GB（与 Qwen/OCR 同机）。放 GPU 0——重排器 0.6B，
+# Q8 约 640MB、加激活封顶 ~2GB，Qwen 占用后仍绰绰有余（详见部署评估）。
+# 策略：llama.cpp `--reranking --pooling rank`，原生暴露 OpenAI/Jina 兼容 /v1/rerank，端口 8082。
+#   （8081 预留给日后的 bge-m3 嵌入服务，避免端口冲突。--reranking 与 --embeddings 互斥，各起一进程。）
+#
+# 用法：
+#   cd docker
+#   cp .env.docker.example .env        # 按需改 MODELS_DIR / MODEL_FILE / 端口
+#   docker compose up -d
+#   docker compose logs -f             # 出现 "server listening" 即就绪
+#
+# 后端接线：在 contract_radar 的 .env 设 RERANK_BASE_URL=http://<本机>:8082/v1
+#   （未设则后端跳过重排、行为不变）。
+
+services:
+  reranker:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: bge-reranker-v2-m3
+    restart: unless-stopped
+
+    ports:
+      - "${RERANK_SERVER_PORT:-8082}:8082"
+
+    volumes:
+      - "${MODELS_DIR:-../models}:/models:ro"
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ["${GPU_DEVICE_ID:-0}"]
+              capabilities: [gpu]
+
+    command:
+      - "-m"
+      - "/models/${MODEL_FILE:-bge-reranker-v2-m3/bge-reranker-v2-m3-Q8_0.gguf}"
+      - "-ngl"
+      - "${N_GPU_LAYERS:-99}"
+      # cross-encoder 判别档：--reranking 暴露 /v1/rerank，--pooling rank 用分类头出分。
+      - "--reranking"
+      - "--pooling"
+      - "rank"
+      # 上下文 = query + 单个候选文档；bge-reranker-v2-m3 支持到 8k，片段够用。
+      - "-c"
+      - "${CONTEXT_SIZE:-8192}"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8082"
+
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8082/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s

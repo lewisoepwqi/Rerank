@@ -1,0 +1,6 @@
+# 模型权重与镜像产物不进版本库（体积大，各机自备）
+models/
+docker/.env
+*.gguf
+*.tar
+*.tar.gz
