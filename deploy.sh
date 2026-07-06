@@ -29,19 +29,24 @@ if [ -f "$MODEL_PATH" ]; then
   echo "    已就位：$MODEL_PATH（$(du -h "$MODEL_PATH" | cut -f1)），继续起服务"
 elif [ "$AUTO_DOWNLOAD" = "1" ]; then
   echo "    自动下载：$MODEL_HF_REPO / $MODEL_HF_FILE"
-  if command -v huggingface-cli >/dev/null 2>&1; then
-    huggingface-cli download "$MODEL_HF_REPO" "$MODEL_HF_FILE" \
-      --local-dir "$MODEL_DIR" --local-dir-use-symlinks False
+  # 国内服务器多半连不上 huggingface.co：设 HF_ENDPOINT=https://hf-mirror.com 走镜像（hf CLI 与 curl 均认）。
+  HF_HOST="${HF_ENDPOINT:-https://huggingface.co}"
+  echo "    源站：$HF_HOST（连不上就 HF_ENDPOINT=https://hf-mirror.com ./deploy.sh --download）"
+  if command -v hf >/dev/null 2>&1; then                       # 新版 CLI（huggingface_hub>=0.x 的 hf）
+    HF_ENDPOINT="$HF_HOST" hf download "$MODEL_HF_REPO" "$MODEL_HF_FILE" --local-dir "$MODEL_DIR"
+  elif command -v huggingface-cli >/dev/null 2>&1; then        # 旧版 CLI（兼容）
+    HF_ENDPOINT="$HF_HOST" huggingface-cli download "$MODEL_HF_REPO" "$MODEL_HF_FILE" --local-dir "$MODEL_DIR"
   else
-    URL="https://huggingface.co/${MODEL_HF_REPO}/resolve/main/${MODEL_HF_FILE}"
-    echo "    （无 huggingface-cli，用 curl 拉 $URL）"
-    curl -fL --retry 3 -o "$MODEL_PATH.part" "$URL" && mv "$MODEL_PATH.part" "$MODEL_PATH" || {
-      rm -f "$MODEL_PATH.part"
-      echo "!! 下载失败（仓库/文件名不对、需代理、或源不可达）。"
-      echo "   换源重试：MODEL_HF_REPO=<repo> MODEL_HF_FILE=<xxx.gguf> ./deploy.sh --download"
-      echo "   或改手动：把 GGUF 放到 $MODEL_DIR/ 后跑 ./deploy.sh"
+    URL="${HF_HOST%/}/${MODEL_HF_REPO}/resolve/main/${MODEL_HF_FILE}"
+    echo "    （无 hf CLI，用 curl 断点续传拉 $URL）"
+    curl -fL -C - --retry 5 --retry-delay 5 -o "$MODEL_PATH.part" "$URL" && mv "$MODEL_PATH.part" "$MODEL_PATH" || {
+      echo "!! 下载失败（仓库/文件名不对、需镜像、或源不可达）。.part 已保留可重跑续传。"
+      echo "   走镜像：HF_ENDPOINT=https://hf-mirror.com ./deploy.sh --download"
+      echo "   换源  ：MODEL_HF_REPO=<repo> MODEL_HF_FILE=<xxx.gguf> ./deploy.sh --download"
+      echo "   或手动：把 GGUF 放到 $MODEL_DIR/ 后跑 ./deploy.sh"
       exit 1; }
   fi
+  [ -f "$MODEL_PATH" ] || { echo "!! 下载后未见 $MODEL_PATH，请检查文件名或改手动上传"; exit 1; }
   echo "    完成：$MODEL_PATH（$(du -h "$MODEL_PATH" | cut -f1)）"
 else
   # 手动模式：只建目录、给清晰指引，不当错误退出（这是"等上传"的正常状态）。
