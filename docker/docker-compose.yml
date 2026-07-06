@@ -21,7 +21,7 @@ name: cr-rerank
 services:
   reranker:
     image: ghcr.io/ggml-org/llama.cpp:server-cuda
-    container_name: bge-reranker-v2-m3
+    container_name: bge-reranker-v2
     restart: unless-stopped
 
     ports:
