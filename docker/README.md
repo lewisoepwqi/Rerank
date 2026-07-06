@@ -11,6 +11,11 @@
 
 ## 部署
 
+**一键（推荐）**：在 `Rerank/` 根目录跑 `./deploy.sh`——自动下载模型 GGUF + 建 .env + 起容器 + 冒烟自检。
+离线机先手动把 GGUF 放到 `models/bge-reranker-v2-m3/` 再跑（会跳过下载）；换源设 `MODEL_HF_REPO`/`MODEL_HF_FILE`。
+
+**手动**：
+
 ```bash
 # 1) 放模型：把 bge-reranker-v2-m3-Q8_0.gguf 放到 ./models/bge-reranker-v2-m3/
 # 2) 起服务
