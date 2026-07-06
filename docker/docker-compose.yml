@@ -6,6 +6,8 @@
 #   （8081 预留给日后的 bge-m3 嵌入服务，避免端口冲突。--reranking 与 --embeddings 互斥，各起一进程。）
 #
 # 用法：
+# 独立 compose 项目名，防与同机其它 docker/ 目录（LLM/Embedding，默认项目名都叫 docker）互认孤儿容器、
+# 被 --remove-orphans 误删。建议 LLM/Embedding 各自也加一个 name。
 #   cd docker
 #   cp .env.docker.example .env        # 按需改 MODELS_DIR / MODEL_FILE / 端口
 #   docker compose up -d
@@ -13,6 +15,8 @@
 #
 # 后端接线：在 contract_radar 的 .env 设 RERANK_BASE_URL=http://<本机>:8082/v1
 #   （未设则后端跳过重排、行为不变）。
+
+name: cr-rerank
 
 services:
   reranker:
