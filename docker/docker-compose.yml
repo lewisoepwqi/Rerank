@@ -16,12 +16,12 @@
 # 后端接线：在 contract_radar 的 .env 设 RERANK_BASE_URL=http://<本机>:8082/v1
 #   （未设则后端跳过重排、行为不变）。
 
-name: cr-rerank
+name: bge-reranker-v2-m3
 
 services:
   reranker:
     image: ghcr.io/ggml-org/llama.cpp:server-cuda
-    container_name: bge-reranker-v2
+    container_name: bge-reranker-v2-m3
     restart: unless-stopped
 
     ports:
